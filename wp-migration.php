@@ -19,11 +19,25 @@ if ( ! defined( 'ABSPATH' ) ) {
  *
 */
 function dfm_defer_term_counting () {
+        wp_defer_term_counting( true );
+}
+add_action( 'after_theme_setup', 'dfm_defer_term_counting' );
+
+/**
+ * Ensure wp_defer_term_counting gets set later in the process
+ * as only setting it after_theme_setup doesn't persist through
+ * all actions
+ */
+function dfm_defer_term_counting () {
         return wp_defer_term_counting( true );
 }
 
 add_action( 'add_term_relationship', 'dfm_defer_term_counting' );
 
+/**
+ * Turn off wp_defer_term_counting after object terms
+ * have been set to prevent other funky issues from happening
+ */
 function dfm_defer_term_counting () {
         return wp_defer_term_counting( false );
 }
