@@ -19,10 +19,17 @@ if ( ! defined( 'ABSPATH' ) ) {
  *
 */
 function dfm_defer_term_counting () {
-        wp_defer_term_counting( true );
+        return wp_defer_term_counting( true );
 }
 
-add_action( 'after_theme_setup', 'dfm_defer_term_counting' );
+add_action( 'add_term_relationship', 'dfm_defer_term_counting' );
+
+function dfm_defer_term_counting () {
+        return wp_defer_term_counting( false );
+}
+
+add_action( 'set_object_terms', 'dfm_defer_term_counting' );
+
 
 // kill our thumbnails for migration
 add_filter( 'intermediate_image_sizes', '__return_empty_array' );
