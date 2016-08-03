@@ -158,7 +158,7 @@ class Migration_Coauthors_Rest_Endpoint {
 			$author_name = $term->slug;
 		}
 		
-		wp_defer_term_counting(true);
+		wp_defer_term_counting( true );
 		
 		wp_set_post_terms( $post_id, $coauthors, $coauthors_plus->coauthor_taxonomy, false );
 
@@ -182,7 +182,7 @@ class Migration_Coauthors_Rest_Endpoint {
 			clean_post_cache( $post_id );
 		}
 		
-		wp_defer_term_counting(false);
+		wp_defer_term_counting( false );
 
 		return true;
 
