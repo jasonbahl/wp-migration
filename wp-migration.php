@@ -14,6 +14,8 @@ if ( ! defined( 'ABSPATH' ) ) {
         die( 'Goodbye' );
 }
 
+add_filter( 'coauthors_plus_should_query_post_author', '__return_false' );
+
 /**
  * Defer term counting because we are bulk uploading
  *
