@@ -29,6 +29,20 @@ add_action( 'after_theme_setup', 'dfm_defer_term_counting' );
 // kill our thumbnails for migration
 add_filter( 'intermediate_image_sizes', '__return_empty_array' );
 
+// Filter the allowed Query Vars for the REST API
+add_filter( 'rest_query_vars', 'dfm_migration_allow_meta_query' );
+
+/**
+ * This allows support for quering via meta fields from the REST API. 
+ * At the moment we don't want to enable on production until we vet for performance, etc
+ * But michael needs this to do some migration cleanup. 
+ */
+function dfm_migration_allow_meta_query( $valid_vars ) {
+	$valid_vars = array_merge( $valid_vars, array( 'meta_key', 'meta_value', 'meta_compare' ) );
+	return $valid_vars;
+	
+}
+
 /**
  * This adds a coauthors field to the main post REST endpoint. 
  * On GET it outputs an array of authors and on POST/PUT, an array of author 
