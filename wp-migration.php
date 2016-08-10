@@ -194,8 +194,12 @@ class Migration_Coauthors_Rest_Endpoint {
 
 new Migration_Coauthors_Rest_Endpoint();
 
+if ( defined( 'WP_CLI' ) && WP_CLI ) :
+	
 // Add the dfm_migration cli command
 WP_CLI::add_command( 'dfm_migration', 'DFM_CLI_Migration' );
+
+endif;
 
 // Create the dfm_migration CLI class
 class DFM_CLI_Migration extends WPCOM_VIP_CLI_Command {
