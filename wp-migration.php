@@ -193,3 +193,106 @@ class Migration_Coauthors_Rest_Endpoint {
 }
 
 new Migration_Coauthors_Rest_Endpoint();
+
+// Add the dfm_migration cli command
+WP_CLI::add_command( 'dfm_migration', 'DFM_CLI_Migration' );
+
+// Create the dfm_migration CLI class
+class DFM_CLI_Migration extends WPCOM_VIP_CLI_Command {
+	
+	/**
+	 * Imports users from a CSV file and creates CAP authors but does NOT attach to users
+	 * 
+	 * The CSV file should contain the following columns: display_name, first_name, last_name, source_name
+	 *
+	 * NOTE: This is to be used on migration environments only and is NOT intended for use on VIP Production environments
+	 *
+	 * @see: https://github.com/wp-cli/wp-cli/blob/master/php/commands/user.php#L656
+	 *
+	 * ## OPTIONS
+	 *
+	 * ## EXAMPLES
+	 *
+	 * wp mason import_cap_authors_with_no_users /path/to/csv.csv
+	 *
+	 */
+	public function import_cap_authors_with_no_users( $args, $assoc_args ) {
+
+		global $coauthors_plus;
+
+		$filename = $args[0];
+
+		if ( 0 === stripos( $filename, 'http://' ) || 0 === stripos( $filename, 'https://' ) ) {
+
+			$response = wp_remote_head( $filename );
+			$response_code = (string) wp_remote_retrieve_response_code( $response );
+
+			if ( in_array( $response_code[0], array( 4, 5 ), true ) ) {
+
+				WP_CLI::error( "Couldn't access remote CSV file (HTTP {$response_code} response)." );
+
+			}
+
+		} else if ( ! file_exists( $filename ) ) {
+
+			WP_CLI::error( sprintf( 'Missing file: %s', $filename ) );
+
+		}
+
+		// Get the CSV Contents
+		$new_cap_authors = new \WP_CLI\Iterators\CSV( $filename );
+
+		// Loop through the
+		foreach ( $new_cap_authors as $i => $new_cap_author ) {
+
+			$guest_author_id = '';
+
+			$author_data = array(
+				'display_name' => $new_cap_author['display_name'],
+				'first_name' =>$new_cap_author['first_name'],
+				'last_name' =>$new_cap_author['last_name'],
+				'source_name' =>$new_cap_author['source_name'],
+			);
+
+			// Check for existing coauthor with the
+			$existing_coauthor = $coauthors_plus->get_coauthor_by( 'display_name', $author_data['display_name'] );
+
+			// Bail if there's already a caouthor with this display_name
+			if ( 'guest-author' === $existing_coauthor->type ) {
+				WP_CLI::line( 'CAP Author already exists' );
+				return;
+			}
+
+			// Create a guest author
+			$guest_author_id = $coauthors_plus->guest_authors->create( array(
+				'display_name' => $author_data['display_name'],
+				'user_login' => $author_data['display_name'],
+				'first_name' => $author_data['first_name'],
+				'last_name' => $author_data['last_name'],
+			) );
+
+
+			if ( is_wp_error( $guest_author_id ) || ! is_int( $guest_author_id ) ) {
+
+				WP_CLI::warning( 'No Author created for ' . $author_data['display_name'] );
+				WP_CLI::warning( 'Incomplete data or duplicate coauthor...' );
+
+			} else {
+
+				WP_CLI::success( __( 'Guest Author created', 'mason' ) . ': ' . $guest_author_id );
+
+				// Update the cap-source postmeta
+				if ( ! empty( $guest_author_id ) && ! empty( $author_data['source_name'] ) ) {
+					update_post_meta( $guest_author_id, 'cap-source', $author_data['source_name'] );
+					WP_CLI::success( __( 'cap-source updated for author', 'mason' ) . ': ' . $guest_author_id );
+				}
+
+			}
+
+			WP_CLI::line();
+
+		}
+
+	}
+	
+}
