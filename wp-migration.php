@@ -24,6 +24,9 @@ function dfm_defer_term_counting () {
         wp_defer_term_counting( true );
 }
 
+// Disable Revisions
+define('WP_POST_REVISIONS', false );
+
 add_action( 'after_theme_setup', 'dfm_defer_term_counting' );
 
 // kill our thumbnails for migration
