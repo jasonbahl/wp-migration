@@ -14,6 +14,10 @@ if ( ! defined( 'ABSPATH' ) ) {
         die( 'Goodbye' );
 }
 
+if ( defined( 'WP_CLI' ) && WP_CLI ) {
+	require_once( plugin_dir_path( __FILE__ ) . 'php/cli.php' );
+}
+
 add_filter( 'coauthors_plus_should_query_post_author', '__return_false' );
 
 /**
