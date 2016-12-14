@@ -5,7 +5,7 @@ WP_CLI::add_command( 'dfm-migration', 'DFM_Migration_CLI' );
 class DFM_Migration_CLI extends WP_CLI {
 
 	/**
-	 * Imports a list of terms from a scv file
+	 * Imports a list of terms from a csv file
 	 *
 	 * ## OPTIONS
 	 *
