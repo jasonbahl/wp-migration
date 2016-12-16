@@ -157,5 +157,174 @@ class DFM_Migration_CLI extends WP_CLI {
 		echo esc_html( $term_tree );
 
 	}
+	
+	/*
+	 * Imports users from a CSV file and populates additional info in the guest_author post_meta
+	 *
+	 * NOTE: This is to be used on stage environments only and is not intended for use on VIP Production environments
+	 *
+	 * @see: https://github.com/wp-cli/wp-cli/blob/master/php/commands/user.php#L656
+	 *
+	 * @subcommand import-users-with-additional-info
+	 
+	 * ## OPTIONS
+	 *
+	 * ## EXAMPLES
+	 *
+	 * wp dfm-migration import-users-with-additional-info /path/to/csv.csv
+	 *
+	 */
+	public function import_users_with_additional_info( $args, $assoc_args ) {
+
+		$filename = $args[0];
+
+		if ( 0 === stripos( $filename, 'http://' ) || 0 === stripos( $filename, 'https://' ) ) {
+
+			$response = wp_remote_head( $filename );
+			$response_code = (string) wp_remote_retrieve_response_code( $response );
+
+			if ( in_array( $response_code[0], array( 4, 5 ), true ) ) {
+
+				WP_CLI::error( "Couldn't access remote CSV file (HTTP {$response_code} response)." );
+
+			}
+
+		} else if ( ! file_exists( $filename ) ) {
+
+			WP_CLI::error( sprintf( 'Missing file: %s', $filename ) );
+
+		}
+
+		// Get the CSV Contents
+		$new_users = new \WP_CLI\Iterators\CSV( $filename );
+
+		// Show the initial message of how many users are importing
+		WP_CLI::success( __( 'Importing users...', 'mason' ) );
+
+		// Iterate over the CSV
+		foreach ( $new_users as $i => $new_user ) {
+
+			// Capture the role in a variable for later use
+			$new_user_role = $new_user['role'];
+
+			// Set Default user attributes
+			$defaults = array(
+				'role' => 'subscriber',
+				'user_pass' => wp_generate_password(),
+				'user_registered' => strftime( '%F %T', time() ),
+				'display_name' => false,
+				'user_login' => esc_html( $new_user['email'] ),
+				'user_email' => esc_html($new_user['email'] ),
+			);
+
+			// Merger the default data with the $new_user data
+			$new_user = array_merge( $defaults, $new_user );
+
+			// Set the $new_user_role
+			$new_user['role'] = ( ! empty( get_role( $new_user_role )->name ) ) ? get_role( $new_user_role )->name : 'subscriber';
+
+			// User already exists and we just need to add them to the site if they aren't already there
+			$existing_user = get_user_by( 'email', $new_user['email'] );
+
+			// Try and find the user by user_login
+			if ( ! $existing_user ) {
+
+				$existing_user = get_user_by( 'login', $new_user['user_login'] );
+
+			}
+
+			// If the user already exists
+			if ( $existing_user ) {
+
+				// Set the $user_id as the ID of the existing user
+				$user_id = $existing_user->ID;
+				WP_CLI::line( __( 'Existing user was found: ', 'mason' ) . $existing_user->ID . ' : ' . $existing_user->display_name );
+
+			// Create the user
+			} else {
+
+				WP_CLI::line( __( 'No Existing user was found for ', 'mason' ) . $new_user['first_name'] . ' ' . $new_user['last_name'] );
+				WP_CLI::line( __( 'Creating a new user...', 'mason' ) );
+
+				unset( $new_user['ID'] ); // Unset else it will just return the ID
+
+				// Create a new user
+				$user_id = wp_insert_user( $new_user );
+
+				// Show the new user message
+				WP_CLI::success( 'New User Created. ID: ' . $user_id );
+
+			}
+
+			// If No User ID is available (no existing user was found or no user was created)
+			if ( empty( $user_id ) ) {
+
+				WP_CLI::warning( 'No user was found or created for ' . $new_user['first_name'] . ' ' . $new_user['last_name'] );
+
+			} else {
+
+				// Access coauthors plus global
+				global $coauthors_plus;
+
+				// Check if there's already a coauthor connected to this author
+				// Note: coauthors get created automatically when new users are created by a sweet
+				// hook Ryan Kanner created over in inc/users.php
+				// So we should always have an $existing_coauthor get returned at this point
+				$existing_coauthor = $coauthors_plus->get_coauthor_by( 'user_login', $new_user['user_login'] );
+				$guest_author_id = ( ! empty( $existing_coauthor->ID ) ) ? $existing_coauthor->ID : '';
+
+				// If no Guest Author was found for the $new_user
+				if ( empty( $guest_author_id ) ) {
+
+					// Something must've failed with the coauthor creation hook, so display a warning so we know what author needs their data updated still
+					WP_CLI::warning( __( 'Uh oh. No Guest Author was found for: ', 'mason' ) . $new_user['first_name'] . ' ' . $new_user['last_name'] );
+					WP_CLI::warning( __( 'Their author profile will not be updated by this import.', 'mason' ) . $new_user['first_name'] . ' ' . $new_user['last_name'] );
+
+				} else {
+
+					WP_CLI::line( __( 'Updating coauthor profile meta', 'mason' ) );
+
+					// Map the spreadsheet data to the Co Author post_meta fields
+					$guest_author_meta = array(
+						'cap-first_name' => esc_html( $new_user['first_name'] ),
+						'cap-last_name' => esc_html( $new_user['last_name'] ),
+						'cap-job_title' => esc_html( $new_user['title'] ),
+						'cap-phone' => esc_html( $new_user['phone'] ),
+						'cap-website' => esc_html( get_bloginfo( 'url' ),
+						'cap-user_email' => esc_html( $new_user['email'] ),
+						'cap-twitter' => esc_html( $new_user['twitter'] ),
+						'cap-description' => esc_html( $new_user['bio'] ),
+						'cap_full_bio' => esc_html(  $new_user['bio'] ),
+					);
+
+					// Loop through the guest_author_meta
+					foreach ( $guest_author_meta as $key => $value ) {
+
+						if ( ! empty( $key ) && ! empty( $value ) ) {
+
+							// Update the new_guest_author meta
+							update_post_meta( $guest_author_id, $key, $value );
+
+							// Display a message for what data was set for the author
+							WP_CLI::line( 'set guest author ' . $guest_author_id . ' ' . $key . ' as ' . $value );
+
+						}
+
+					}
+
+					WP_CLI::line( __( 'Profile meta updated...', 'mason' ) );
+
+				}
+
+			}
+
+			// Display success for the imported user
+			WP_CLI::success( __( 'User and Guest Author Profile imported for ', 'mason' ) . $new_user['first_name'] . ' ' . $new_user['last_name'] );
+
+		}
+
+		// Show the final success message
+		WP_CLI::success( 'Done!' );
+	}
 
 }
