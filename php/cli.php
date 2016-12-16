@@ -171,7 +171,7 @@ class DFM_Migration_CLI extends WP_CLI {
 	 *
 	 * ## EXAMPLES
 	 *
-	 * wp dfm-migration import_users_with_additional_info /path/to/csv.csv
+	 * wp dfm-migration import-users-with-additional-info /path/to/csv.csv
 	 *
 	 */
 	public function import_users_with_additional_info( $args, $assoc_args ) {
