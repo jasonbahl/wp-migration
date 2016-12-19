@@ -290,7 +290,7 @@ class DFM_Migration_CLI extends WP_CLI {
 						'cap-last_name' => esc_html( $new_user['last_name'] ),
 						'cap-job_title' => esc_html( $new_user['title'] ),
 						'cap-phone' => esc_html( $new_user['phone'] ),
-						'cap-website' => esc_html( get_bloginfo( 'url' ),
+						'cap-website' => esc_html( get_bloginfo( 'url' ) ),
 						'cap-user_email' => esc_html( $new_user['email'] ),
 						'cap-twitter' => esc_html( $new_user['twitter'] ),
 						'cap-description' => esc_html( $new_user['bio'] ),
